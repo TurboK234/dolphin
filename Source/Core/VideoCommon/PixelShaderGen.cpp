@@ -141,6 +141,7 @@ static char text[16384];
 
 template<class T> static inline void WriteStage(T& out, pixel_shader_uid_data& uid_data, int n, API_TYPE ApiType, const char swapModeTable[4][5]);
 template<class T> static inline void WriteTevRegular(T& out, const char* components, int bias, int op, int clamp, int shift);
+template<class T> static inline void WriteTevRegular_OldLerp(T& out, const char* components, int bias, int op, int shift, int d, int oldlerp_zeroarg, int oldlerp_one);	// OldTEVLerp hack
 template<class T> static inline void SampleTexture(T& out, const char *texcoords, const char *texswap, int texmap, API_TYPE ApiType);
 template<class T> static inline void WriteAlphaTest(T& out, pixel_shader_uid_data& uid_data, API_TYPE ApiType,DSTALPHA_MODE dstAlphaMode, bool per_pixel_depth);
 template<class T> static inline void WriteFog(T& out, pixel_shader_uid_data& uid_data);
@@ -763,7 +764,17 @@ static inline void WriteStage(T& out, pixel_shader_uid_data& uid_data, int n, AP
 	out.Write("\t%s = clamp(", tevCOutputTable[cc.dest]);
 	if (cc.bias != TevBias_COMPARE)
 	{
-		WriteTevRegular(out, "rgb", cc.bias, cc.op, cc.clamp, cc.shift);
+		// Enforces old TEV scale lerping only if D3D backend is active and the option is set in the inifile(s).
+		// (OldTEVLerp hack, to remove delete the if structure and leave the line marked with NewTEVLerp)
+		// All other changes can be found (and deleted) with search string OldTEVLerp .
+		if (g_ActiveConfig.bOldTEVLerp && ApiType == API_D3D)
+		{
+			WriteTevRegular_OldLerp(out, "rgb", cc.bias, cc.op, cc.shift, cc.d, (TEVCOLORARG_ZERO), (255, 255, 255));
+		}
+		else
+		{
+			WriteTevRegular(out, "rgb", cc.bias, cc.op, cc.clamp, cc.shift);
+		}
 	}
 	else
 	{
@@ -793,7 +804,17 @@ static inline void WriteStage(T& out, pixel_shader_uid_data& uid_data, int n, AP
 	out.Write("\t%s = clamp(", tevAOutputTable[ac.dest]);
 	if (ac.bias != TevBias_COMPARE)
 	{
-		WriteTevRegular(out, "a", ac.bias, ac.op, ac.clamp, ac.shift);
+		// Enforces old TEV scale lerping only if D3D backend is active and the option is set in the inifile(s).
+		// (OldTEVLerp hack, to remove delete the if structure and leave the line marked with NewTEVLerp)
+		// All other changes can be found (and deleted) with search string OldTEVLerp .
+		if (g_ActiveConfig.bOldTEVLerp && ApiType == API_D3D)
+		{
+			WriteTevRegular_OldLerp(out, "a", ac.bias, ac.op, ac.shift, ac.d, (TEVALPHAARG_ZERO), 255);
+		}
+		else
+		{
+			WriteTevRegular(out, "a", ac.bias, ac.op, ac.clamp, ac.shift);	// NewTEVLerp
+		}
 	}
 	else
 	{
@@ -872,6 +893,57 @@ static inline void WriteTevRegular(T& out, const char* components, int bias, int
 	          components, components, components, components, components,
 	          tevScaleTableLeft[shift], tevLerpBias[2*op+(shift!=3)]);
 	out.Write(")%s", tevScaleTableRight[shift]);
+}
+
+template<class T>
+static inline void WriteTevRegular_OldLerp(T& out, const char* components, int bias, int op, int shift, int d, int oldlerp_zeroarg, int oldlerp_one)
+{
+	const char *tevScaleTable[] =
+	{
+		"",       // SCALE_1
+		" << 1",  // SCALE_2
+		" << 2",  // SCALE_4
+		" >> 1",  // DIVIDE_2
+	};
+
+	const char *tevBiasTable[] =
+	{
+		"",        // ZERO,
+		" + 128",  // ADDHALF,
+		" - 128",  // SUBHALF,
+		"",
+	};
+
+	const char *tevOpTable[] = {
+		"+",      // TEVOP_ADD = 0,
+		"-",      // TEVOP_SUB = 1,
+	};
+
+	// OldTEVLerp HACK:
+	// This is a cleaned up version of the old (prior to
+	// Dolphin version 4.0-1280) TEV scale lerping method, which is
+	// only a guess of GC/Wii GPU behaviour (according to NeoBrain).
+	// The new method (the above template) is proved to be accurate
+	// with HW-tests. This is included as optional method for 
+	// because of unknown reason the newer method causes graphics
+	// glitches on some HW setup (especially Intel HD 4000/4600 when
+	// using D3D backend), at least with the latest Intel GPU drivers
+	// as of May 20th 2014.
+	// This template can be deleted when removing the hack, if found
+	// unnecessary later on. Other related changes can be found
+	// with search string OldTEVLerp .
+	if (shift > TEVSCALE_1)
+		out.Write("(");
+
+	if (!(d == oldlerp_zeroarg && op == TEVOP_ADD))
+		out.Write("tevin_d.%s %s ", components, tevOpTable[op]);
+
+	out.Write("(tevin_a.%s * (%i - tevin_c.%s) + tevin_b.%s * tevin_c.%s) / 255", components, oldlerp_one, components, components, components);
+
+	out.Write(" %s", tevBiasTable[bias]);
+
+	if (shift > TEVSCALE_1)
+		out.Write(")%s", tevScaleTable[shift]);
 }
 
 template<class T>

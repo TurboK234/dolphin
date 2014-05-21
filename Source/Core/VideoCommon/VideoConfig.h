@@ -123,6 +123,9 @@ struct VideoConfig final
 	int iLog; // CONF_ bits
 	int iSaveTargetId; // TODO: Should be dropped
 
+	// used to bypass new HW-accurate TEV scale lerping (OldTEVLerp hack)
+	bool bOldTEVLerp;
+
 	//currently unused:
 	int iCompileDLsLevel;
 

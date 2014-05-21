@@ -95,6 +95,7 @@ void VideoConfig::Load(const std::string& ini_file)
 	iniFile.Get("Hacks", "EFBScaledCopy", &bCopyEFBScaled, true);
 	iniFile.Get("Hacks", "EFBCopyCacheEnable", &bEFBCopyCacheEnable, false);
 	iniFile.Get("Hacks", "EFBEmulateFormatChanges", &bEFBEmulateFormatChanges, false);
+	iniFile.Get("Hacks", "OldTEVLerpOnD3D", &bOldTEVLerp, false);	// OldTEVLerp hack
 
 	iniFile.Get("Hardware", "Adapter", &iAdapter, 0);
 
@@ -193,6 +194,7 @@ void VideoConfig::GameIniLoad()
 	CHECK_SETTING("Video_Hacks", "EFBScaledCopy", bCopyEFBScaled);
 	CHECK_SETTING("Video_Hacks", "EFBCopyCacheEnable", bEFBCopyCacheEnable);
 	CHECK_SETTING("Video_Hacks", "EFBEmulateFormatChanges", bEFBEmulateFormatChanges);
+	CHECK_SETTING("Video_Hacks", "OldTEVLerpOnD3D", bOldTEVLerp);	// OldTEVLerp hack
 
 	CHECK_SETTING("Video", "ProjectionHack", iPhackvalue[0]);
 	CHECK_SETTING("Video", "PH_SZNear", iPhackvalue[1]);
@@ -268,6 +270,7 @@ void VideoConfig::Save(const std::string& ini_file)
 	iniFile.Set("Hacks", "EFBScaledCopy", bCopyEFBScaled);
 	iniFile.Set("Hacks", "EFBCopyCacheEnable", bEFBCopyCacheEnable);
 	iniFile.Set("Hacks", "EFBEmulateFormatChanges", bEFBEmulateFormatChanges);
+	iniFile.Set("Hacks", "OldTEVLerpOnD3D", bOldTEVLerp);	// OldTEVLerp hack
 
 	iniFile.Set("Hardware", "Adapter", iAdapter);
 

@@ -36,11 +36,11 @@ Core::GetWindowHandle().
 #include <wx/strconv.h>
 #include <wx/string.h>
 #include <wx/thread.h>
+#include <wx/toolbar.h>
 #include <wx/toplevel.h>
 #include <wx/translation.h>
 #include <wx/utils.h>
 #include <wx/window.h>
-#include <wx/aui/auibar.h>
 #include <wx/aui/framemanager.h>
 
 #ifdef __APPLE__
@@ -501,7 +501,7 @@ wxString CFrame::GetMenuLabel(int Id)
 
 // Create toolbar items
 // ---------------------
-void CFrame::PopulateToolbar(wxAuiToolBar* ToolBar)
+void CFrame::PopulateToolbar(wxToolBar* ToolBar)
 {
 	int w = m_Bitmaps[Toolbar_FileOpen].GetWidth(),
 		h = m_Bitmaps[Toolbar_FileOpen].GetHeight();
@@ -528,21 +528,6 @@ void CFrame::PopulateToolbar(wxAuiToolBar* ToolBar)
 	ToolBar->Realize();
 }
 
-void CFrame::PopulateToolbarAui(wxAuiToolBar* ToolBar)
-{
-	int w = m_Bitmaps[Toolbar_FileOpen].GetWidth(),
-		h = m_Bitmaps[Toolbar_FileOpen].GetHeight();
-	ToolBar->SetToolBitmapSize(wxSize(w, h));
-
-	ToolBar->AddTool(IDM_SAVE_PERSPECTIVE,  _("Save"), g_pCodeWindow->m_Bitmaps[Toolbar_GotoPC], _("Save current perspective"));
-	ToolBar->AddTool(IDM_EDIT_PERSPECTIVES, _("Edit"), g_pCodeWindow->m_Bitmaps[Toolbar_GotoPC], _("Edit current perspective"));
-
-	ToolBar->SetToolDropDown(IDM_SAVE_PERSPECTIVE, true);
-	ToolBar->SetToolDropDown(IDM_EDIT_PERSPECTIVES, true);
-
-	ToolBar->Realize();
-}
-
 
 // Delete and recreate the toolbar
 void CFrame::RecreateToolbar()
@@ -551,34 +536,22 @@ void CFrame::RecreateToolbar()
 	{
 		m_Mgr->DetachPane(m_ToolBar);
 		m_ToolBar->Destroy();
+		m_ToolBar = nullptr;
 	}
 
-	long TOOLBAR_STYLE = wxAUI_TB_DEFAULT_STYLE | wxAUI_TB_TEXT  /*wxAUI_TB_OVERFLOW overflow visible*/;
-	m_ToolBar = new wxAuiToolBar(this, ID_TOOLBAR, wxDefaultPosition, wxDefaultSize, TOOLBAR_STYLE);
+	long TOOLBAR_STYLE = wxTB_DEFAULT_STYLE | wxTB_TEXT;
 
-	PopulateToolbar(m_ToolBar);
-
-	m_Mgr->AddPane(m_ToolBar, wxAuiPaneInfo().
-				Name("TBMain").Caption("TBMain").
-				ToolbarPane().Top().
-				LeftDockable(false).RightDockable(false).Floatable(false));
-
-	if (g_pCodeWindow && !m_ToolBarDebug)
+	if (!m_ToolBar)
 	{
-		m_ToolBarDebug = new wxAuiToolBar(this, ID_TOOLBAR_DEBUG, wxDefaultPosition, wxDefaultSize, TOOLBAR_STYLE);
-		g_pCodeWindow->PopulateToolbar(m_ToolBarDebug);
+		m_ToolBar = CreateToolBar(TOOLBAR_STYLE, wxID_ANY, "TBMain");
 
-		m_Mgr->AddPane(m_ToolBarDebug, wxAuiPaneInfo().
-				Name("TBDebug").Caption("TBDebug").
-				ToolbarPane().Top().
-				LeftDockable(false).RightDockable(false).Floatable(false));
+		if (g_pCodeWindow)
+		{
+			g_pCodeWindow->PopulateToolbar(m_ToolBar);
+			m_ToolBar->AddSeparator();
+		}
 
-		m_ToolBarAui = new wxAuiToolBar(this, ID_TOOLBAR_AUI, wxDefaultPosition, wxDefaultSize, TOOLBAR_STYLE);
-		PopulateToolbarAui(m_ToolBarAui);
-		m_Mgr->AddPane(m_ToolBarAui, wxAuiPaneInfo().
-				Name("TBAui").Caption("TBAui").
-				ToolbarPane().Top().
-				LeftDockable(false).RightDockable(false).Floatable(false));
+		PopulateToolbar(m_ToolBar);
 	}
 
 	UpdateGUI();
@@ -834,7 +807,10 @@ void CFrame::OnRenderParentClose(wxCloseEvent& event)
 	if (Core::GetState() != Core::CORE_UNINITIALIZED)
 	{
 		DoStop();
-		event.Veto();
+		if (event.CanVeto())
+		{
+			event.Veto();
+		}
 		return;
 	}
 
@@ -1097,6 +1073,9 @@ void CFrame::DoStop()
 		// Ask for confirmation in case the user accidentally clicked Stop / Escape
 		if (SConfig::GetInstance().m_LocalCoreStartupParameter.bConfirmStop)
 		{
+			// Exit fullscreen to ensure it does not cover the stop dialog.
+			DoFullscreen(false);
+
 			// Pause the state during confirmation and restore it afterwards
 			Core::EState state = Core::GetState();
 
@@ -1106,10 +1085,6 @@ void CFrame::DoStop()
 				SConfig::GetInstance().m_LocalCoreStartupParameter.bRenderToMain)
 			{
 				Core::SetState(Core::CORE_PAUSE);
-			}
-			else
-			{
-				DoFullscreen(false);
 			}
 
 			wxMessageDialog m_StopDlg(
@@ -1721,22 +1696,25 @@ void CFrame::UpdateGUI()
 				AccessWiiMote(0x0104)->IsConnected());
 	}
 
-	if (Running)
+	if (m_ToolBar)
 	{
-		if (m_ToolBar)
+		// Get the tool that controls pausing/playing
+		wxToolBarToolBase * PlayTool = m_ToolBar->FindById(IDM_PLAY);
+
+		if (PlayTool)
 		{
-			m_ToolBar->SetToolBitmap(IDM_PLAY, m_Bitmaps[Toolbar_Pause]);
-			m_ToolBar->SetToolShortHelp(IDM_PLAY, _("Pause"));
-			m_ToolBar->SetToolLabel(IDM_PLAY, _("Pause"));
-		}
-	}
-	else
-	{
-		if (m_ToolBar)
-		{
-			m_ToolBar->SetToolBitmap(IDM_PLAY, m_Bitmaps[Toolbar_Play]);
-			m_ToolBar->SetToolShortHelp(IDM_PLAY, _("Play"));
-			m_ToolBar->SetToolLabel(IDM_PLAY, _("Play"));
+			if (Running)
+			{
+				PlayTool->SetLabel(_("Pause"));
+				PlayTool->SetShortHelp(_("Pause"));
+				m_ToolBar->SetToolNormalBitmap(IDM_PLAY, m_Bitmaps[Toolbar_Pause]);
+			}
+			else
+			{
+				PlayTool->SetLabel(_("Play"));
+				PlayTool->SetShortHelp(_("Play"));
+				m_ToolBar->SetToolNormalBitmap(IDM_PLAY, m_Bitmaps[Toolbar_Play]);
+			}
 		}
 	}
 
@@ -1898,26 +1876,8 @@ void CFrame::OnToggleToolbar(wxCommandEvent& event)
 }
 void CFrame::DoToggleToolbar(bool _show)
 {
-	if (_show)
-	{
-		m_Mgr->GetPane("TBMain").Show();
-		if (g_pCodeWindow)
-		{
-			m_Mgr->GetPane("TBDebug").Show();
-			m_Mgr->GetPane("TBAui").Show();
-		}
-		m_Mgr->Update();
-	}
-	else
-	{
-		m_Mgr->GetPane("TBMain").Hide();
-		if (g_pCodeWindow)
-		{
-			m_Mgr->GetPane("TBDebug").Hide();
-			m_Mgr->GetPane("TBAui").Hide();
-		}
-		m_Mgr->Update();
-	}
+	GetToolBar()->Show(_show);
+	m_Mgr->Update();
 }
 
 // Enable and disable the status bar

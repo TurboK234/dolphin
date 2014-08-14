@@ -41,7 +41,6 @@
 #include <wx/translation.h>
 #include <wx/window.h>
 #include <wx/windowid.h>
-#include <wx/aui/auibar.h>
 #include <wx/aui/auibook.h>
 #include <wx/aui/framemanager.h>
 
@@ -192,6 +191,25 @@ WXLRESULT CRenderFrame::MSWWindowProc(WXUINT nMsg, WXWPARAM wParam, WXLPARAM lPa
 }
 #endif
 
+bool CRenderFrame::ShowFullScreen(bool show, long style)
+{
+	if (show)
+	{
+		// OpenGL requires the pop-up style to activate exclusive mode.
+		SetWindowStyle((GetWindowStyle() & ~wxDEFAULT_FRAME_STYLE) | wxPOPUP_WINDOW);
+	}
+
+	bool result = wxTopLevelWindow::ShowFullScreen(show, style);
+
+	if (!show)
+	{
+		// Restore the default style.
+		SetWindowStyle((GetWindowStyle() & ~wxPOPUP_WINDOW) | wxDEFAULT_FRAME_STYLE);
+	}
+
+	return result;
+}
+
 // event tables
 // Notice that wxID_HELP will be processed for the 'About' menu and the toolbar
 // help button.
@@ -227,16 +245,14 @@ EVT_MENU(IDM_CONFIG_PAD_PLUGIN, CFrame::OnConfigPAD)
 EVT_MENU(IDM_CONFIG_WIIMOTE_PLUGIN, CFrame::OnConfigWiimote)
 EVT_MENU(IDM_CONFIG_HOTKEYS, CFrame::OnConfigHotkey)
 
-EVT_MENU(IDM_SAVE_PERSPECTIVE, CFrame::OnToolBar)
-EVT_AUITOOLBAR_TOOL_DROPDOWN(IDM_SAVE_PERSPECTIVE, CFrame::OnDropDownToolbarItem)
-EVT_MENU(IDM_EDIT_PERSPECTIVES, CFrame::OnToolBar)
-EVT_AUITOOLBAR_TOOL_DROPDOWN(IDM_EDIT_PERSPECTIVES, CFrame::OnDropDownSettingsToolbar)
+EVT_MENU(IDM_SAVE_PERSPECTIVE, CFrame::OnPerspectiveMenu)
+EVT_MENU(IDM_EDIT_PERSPECTIVES, CFrame::OnPerspectiveMenu)
 // Drop down
-EVT_MENU(IDM_PERSPECTIVES_ADD_PANE, CFrame::OnToolBar)
+EVT_MENU(IDM_PERSPECTIVES_ADD_PANE, CFrame::OnPerspectiveMenu)
 EVT_MENU_RANGE(IDM_PERSPECTIVES_0, IDM_PERSPECTIVES_100, CFrame::OnSelectPerspective)
-EVT_MENU(IDM_ADD_PERSPECTIVE, CFrame::OnDropDownToolbarSelect)
-EVT_MENU(IDM_TAB_SPLIT, CFrame::OnDropDownToolbarSelect)
-EVT_MENU(IDM_NO_DOCKING, CFrame::OnDropDownToolbarSelect)
+EVT_MENU(IDM_ADD_PERSPECTIVE, CFrame::OnPerspectiveMenu)
+EVT_MENU(IDM_TAB_SPLIT, CFrame::OnPerspectiveMenu)
+EVT_MENU(IDM_NO_DOCKING, CFrame::OnPerspectiveMenu)
 // Drop down float
 EVT_MENU_RANGE(IDM_FLOAT_LOGWINDOW, IDM_FLOAT_CODEWINDOW, CFrame::OnFloatWindow)
 
@@ -310,7 +326,7 @@ CFrame::CFrame(wxFrame* parent,
 		long style)
 	: CRenderFrame(parent, id, title, pos, size, style)
 	, g_pCodeWindow(nullptr), g_NetPlaySetupDiag(nullptr), g_CheatsWindow(nullptr)
-	, m_ToolBar(nullptr), m_ToolBarDebug(nullptr), m_ToolBarAui(nullptr)
+	, m_SavedPerspectives(nullptr), m_ToolBar(nullptr)
 	, m_GameListCtrl(nullptr), m_Panel(nullptr)
 	, m_RenderFrame(nullptr), m_RenderParent(nullptr)
 	, m_LogWindow(nullptr), m_LogConfigWindow(nullptr)
@@ -510,7 +526,10 @@ void CFrame::OnClose(wxCloseEvent& event)
 	if (Core::GetState() != Core::CORE_UNINITIALIZED)
 	{
 		DoStop();
-		event.Veto();
+		if (event.CanVeto())
+		{
+			event.Veto();
+		}
 		return;
 	}
 
@@ -1123,18 +1142,6 @@ void CFrame::OnKeyUp(wxKeyEvent& event)
 
 void CFrame::OnMouse(wxMouseEvent& event)
 {
-#if defined(HAVE_X11) && HAVE_X11
-	if (Core::GetState() != Core::CORE_UNINITIALIZED)
-	{
-		if (event.Dragging())
-			X11Utils::SendMotionEvent(X11Utils::XDisplayFromHandle(GetHandle()),
-					event.GetPosition().x, event.GetPosition().y);
-		else
-			X11Utils::SendButtonEvent(X11Utils::XDisplayFromHandle(GetHandle()), event.GetButton(),
-					event.GetPosition().x, event.GetPosition().y, event.ButtonDown());
-	}
-#endif
-
 	// next handlers are all for FreeLook, so we don't need to check them if disabled
 	if (!g_Config.bFreeLook)
 	{

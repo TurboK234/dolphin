@@ -234,7 +234,6 @@
     <ClCompile Include="stdafx.cpp">
       <PrecompiledHeader>Create</PrecompiledHeader>
     </ClCompile>
-    <ClCompile Include="Tracer.cpp" />
     <ClCompile Include="VolumeHandler.cpp" />
     <ClCompile Include="x64MemTools.cpp" />
   </ItemGroup>
@@ -277,7 +276,6 @@
     <ClInclude Include="DSP\DSPStacks.h" />
     <ClInclude Include="DSP\DSPTables.h" />
     <ClInclude Include="DSP\Jit\DSPJitRegCache.h" />
-    <ClInclude Include="DSP\Jit\DSPJitUtil.h" />
     <ClInclude Include="DSP\LabelMap.h" />
     <ClInclude Include="ec_wii.h" />
     <ClInclude Include="FifoPlayer\FifoAnalyzer.h" />
@@ -415,7 +413,6 @@
     <ClInclude Include="PowerPC\SignatureDB.h" />
     <ClInclude Include="State.h" />
     <ClInclude Include="stdafx.h" />
-    <ClInclude Include="Tracer.h" />
     <ClInclude Include="VolumeHandler.h" />
   </ItemGroup>
   <ItemGroup>

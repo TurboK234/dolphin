@@ -72,15 +72,11 @@ void Host_UpdateTitle(const std::string& title)
 	__android_log_write(ANDROID_LOG_INFO, DOLPHIN_TAG, title.c_str());
 }
 
-void Host_UpdateLogDisplay(){}
-
 void Host_UpdateDisasmDialog(){}
 
 void Host_UpdateMainFrame()
 {
 }
-
-void Host_UpdateBreakPointView(){}
 
 void Host_GetRenderWindowSize(int& x, int& y, int& width, int& height)
 {
@@ -109,8 +105,6 @@ bool Host_RendererHasFocus()
 }
 
 void Host_ConnectWiimote(int wm_idx, bool connect) {}
-
-void Host_SetWaitCursor(bool enable){}
 
 void Host_UpdateStatusBar(const std::string& text, int filed){}
 

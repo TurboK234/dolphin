@@ -78,11 +78,6 @@ Make AA apply instantly during gameplay if possible
 #include "VideoCommon/VideoConfig.h"
 #include "VideoCommon/VideoState.h"
 
-
-#ifdef _WIN32
-#include "Common/IniFile.h"
-#endif
-
 namespace OGL
 {
 
@@ -231,8 +226,8 @@ void VideoBackend::Shutdown()
 	GLInterface->Shutdown();
 }
 
-void VideoBackend::Video_Cleanup() {
-
+void VideoBackend::Video_Cleanup()
+{
 	if (g_renderer)
 	{
 		s_efbAccessRequested = false;

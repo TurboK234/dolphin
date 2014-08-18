@@ -2,6 +2,7 @@
 // Licensed under GPLv2
 // Refer to the license.txt file included.
 
+#include <limits>
 #include <vector>
 
 #include "Core/PowerPC/Jit64/Jit.h"
@@ -9,6 +10,11 @@
 #include "Core/PowerPC/Jit64/JitRegCache.h"
 
 using namespace Gen;
+
+void Jit64::GenerateConstantOverflow(s64 val)
+{
+	GenerateConstantOverflow(val > std::numeric_limits<s32>::max() || val < std::numeric_limits<s32>::min());
+}
 
 void Jit64::GenerateConstantOverflow(bool overflow)
 {
@@ -430,17 +436,18 @@ void Jit64::cmpXX(UGeckoInstruction inst)
 			//     std::swap(destination1, destination2), condition = !condition;
 
 			gpr.UnlockAll();
-			gpr.Flush(FLUSH_MAINTAIN_STATE);
-			fpr.Flush(FLUSH_MAINTAIN_STATE);
 			FixupBranch pDontBranch;
 			if (test_bit & 8)
-				pDontBranch = J_CC(condition ? CC_GE : CC_L);  // Test < 0, so jump over if >= 0.
+				pDontBranch = J_CC(condition ? CC_GE : CC_L, true);  // Test < 0, so jump over if >= 0.
 			else if (test_bit & 4)
-				pDontBranch = J_CC(condition ? CC_LE : CC_G);  // Test > 0, so jump over if <= 0.
+				pDontBranch = J_CC(condition ? CC_LE : CC_G, true);  // Test > 0, so jump over if <= 0.
 			else if (test_bit & 2)
-				pDontBranch = J_CC(condition ? CC_NE : CC_E);  // Test = 0, so jump over if != 0.
+				pDontBranch = J_CC(condition ? CC_NE : CC_E, true);  // Test = 0, so jump over if != 0.
 			else  // SO bit, do not branch (we don't emulate SO for cmp).
-				pDontBranch = J();
+				pDontBranch = J(true);
+
+			gpr.Flush(FLUSH_MAINTAIN_STATE);
+			fpr.Flush(FLUSH_MAINTAIN_STATE);
 
 			// Code that handles successful PPC branching.
 			if (js.next_inst.OPCD == 16) // bcx
@@ -480,6 +487,8 @@ void Jit64::cmpXX(UGeckoInstruction inst)
 
 			if (!analyzer.HasOption(PPCAnalyst::PPCAnalyzer::OPTION_CONDITIONAL_CONTINUE))
 			{
+				gpr.Flush();
+				fpr.Flush();
 				WriteExit(js.next_compilerPC + 4);
 			}
 		}
@@ -925,7 +934,7 @@ void Jit64::subfx(UGeckoInstruction inst)
 		}
 		if (inst.OE)
 		{
-			GenerateConstantOverflow((s64)(i - j) != (s64)i - (s64)j);
+			GenerateConstantOverflow((s64)i - (s64)j);
 		}
 	}
 	else
@@ -1014,7 +1023,7 @@ void Jit64::mullwx(UGeckoInstruction inst)
 		gpr.SetImmediate32(d, i * j);
 		if (inst.OE)
 		{
-			GenerateConstantOverflow((s64)(i*j) != (s64)i * (s64)j);
+			GenerateConstantOverflow((s64)i * (s64)j);
 		}
 	}
 	else
@@ -1330,7 +1339,7 @@ void Jit64::addx(UGeckoInstruction inst)
 		}
 		if (inst.OE)
 		{
-			GenerateConstantOverflow((s64)(i + j) != (s64)i + (s64)j);
+			GenerateConstantOverflow((s64)i + (s64)j);
 		}
 	}
 	else if (gpr.R(a).IsSimpleReg() && gpr.R(b).IsSimpleReg() && !inst.Rc && !inst.OE)

@@ -21,7 +21,8 @@ using namespace Gen;
 
 extern u8 *trampolineCodePtr;
 
-static void BackPatchError(const std::string &text, u8 *codePtr, u32 emAddress) {
+static void BackPatchError(const std::string &text, u8 *codePtr, u32 emAddress)
+{
 	u64 code_addr = (u64)codePtr;
 	disassembler disasm;
 	char disbuf[256];
@@ -61,9 +62,10 @@ const u8 *TrampolineCache::GetReadTrampoline(const InstructionInfo &info, u32 re
 
 	if (addrReg != ABI_PARAM1)
 		MOV(32, R(ABI_PARAM1), R((X64Reg)addrReg));
-	if (info.displacement) {
+
+	if (info.displacement)
 		ADD(32, R(ABI_PARAM1), Imm32(info.displacement));
-	}
+
 	ABI_PushRegistersAndAdjustStack(registersInUse, true);
 	switch (info.operandSize)
 	{
@@ -266,7 +268,7 @@ const u8 *Jitx86Base::BackPatch(u8 *codePtr, u32 emAddress, void *ctx_void)
 		XEmitter emitter(start);
 		const u8 *trampoline = trampolines.GetWriteTrampoline(info, registersInUse, pc);
 		emitter.CALL((void *)trampoline);
-		int padding = codePtr + info.instructionSize - emitter.GetCodePtr();
+		ptrdiff_t padding = (codePtr - emitter.GetCodePtr()) + info.instructionSize;
 		if (padding > 0)
 		{
 			emitter.NOP(padding);
